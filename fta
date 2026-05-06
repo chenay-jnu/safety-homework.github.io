@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>污水处理故障树分析实训 | 自主判断逻辑门</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: #eef5f0;
+            margin: 0;
+            padding: 20px;
+            color: #1e2f3a;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+        .card h2 {
+            color: #0b3b2f;
+            border-left: 6px solid #f59e0b;
+            padding-left: 16px;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .card h3 { color: #0b3b2f; margin: 20px 0 12px 0; font-size: 18px; }
+        .failure-table, .logic-desc-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .failure-table th, .failure-table td, .logic-desc-table th, .logic-desc-table td {
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .failure-table th, .logic-desc-table th { background: #0b3b2f; color: white; }
+        .process-img {
+            display: block;
+            max-width: 100%;
+            margin: 20px auto;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .canvas-section { display: flex; flex-wrap: wrap; gap: 20px; }
+        .toolbar {
+            flex-shrink: 0;
+            width: 160px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .tool-btn {
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 8px 8px;
+            cursor: pointer;
+            font-size: 13px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { background: #f59e0b; border-color: #f59e0b; color: white; }
+        .tool-btn.active { background: #0b3b2f; border-color: #0b3b2f; color: white; }
+        .tool-btn.delete-btn { background: #fee2e2; border-color: #dc2626; color: #dc2626; }
+        .tool-btn.line-btn { background: #e0e7ff; border-color: #6366f1; color: #3730a3; }
+        .canvas-container {
+            flex: 1;
+            background: #fefce8;
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            border: 2px dashed #cbd5e1;
+            overflow-x: auto;
+        }
+        #faultTreeCanvas {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: crosshair;
+        }
+        .form-row { margin-bottom: 16px; }
+        .form-row label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .prob-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .importance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .importance-item { background: #f8fafc; padding: 10px; border-radius: 12px; text-align: center; }
+        .importance-item label { font-size: 12px; color: #666; margin-bottom: 5px; display: block; }
+        .importance-item input { text-align: center; padding: 6px; font-size: 12px; }
+        .btn-submit {
+            background: #f59e0b;
+            width: 100%;
+            padding: 14px;
+            font-weight: bold;
+            font-size: 16px;
+            border: none;
+            border-radius: 40px;
+            color: #0b3b2f;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+        .btn-upload {
+            background: #6366f1;
+            width: 100%;
+            padding: 14px;
+            font-weight: bold;
+            font-size: 16px;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .qrcode-area {
+            text-align: center;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 20px;
+            margin-top: 20px;
+        }
+        #qrcodeCanvas {
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #ccc;
+        }
+        .note { font-size: 13px; color: #5b6e8c; margin-top: 8px; }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .info {
+            background: #e0e7ff;
+            border-left: 4px solid #6366f1;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        hr { margin: 20px 0; border: none; border-top: 1px solid #e2e8f0; }
+        .status-bar { margin-top: 10px; font-size: 12px; color: #666; }
+        .json-preview {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 16px;
+            text-align: left;
+            word-break: break-all;
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .btn-group .btn-submit {
+            flex: 1;
+            margin-top: 0;
+        }
+        @media (max-width: 800px) {
+            .canvas-section { flex-direction: column; }
+            .toolbar { flex-direction: row; flex-wrap: wrap; width: 100%; }
+            .prob-grid, .importance-grid { grid-template-columns: 1fr; }
+            .btn-group { flex-direction: column; }
+        }
+        .upload-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .upload-status.success { background: #d1fae5; color: #065f46; }
+        .upload-status.error { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 头部 -->
+    <div class="card" style="background:#0b3b2f; color:white; text-align:center;">
+        <h1 style="color:white; border-left:none; margin:0;">🌊 污水处理工艺 · 故障树分析实训</h1>
+        <p style="margin:10px 0 0 0;">顶事件：出水水质超标 | 请根据逻辑关系自主判断门类型并完成分析</p>
+    </div>
+
+    <!-- ==================== 案例背景（含逻辑描述，不直接给门类型） ==================== -->
+    <div class="card">
+        <h2>📖 案例背景与故障树逻辑</h2>
+        <img class="process-img" src="https://pic.rmb.bdstatic.com/bjh/down/fb7f244f87c5ff4955d0cfec60b03c16.gif" alt="污水处理工艺流程图" onerror="this.style.display='none'">
+        <p>某城镇污水处理厂采用 <strong>污水 → 一次沉淀池 → 生物转盘 → 二次沉淀池 → 出水</strong> 的二级生物处理工艺。近期频繁出现出水COD、氨氮、SS超标（顶事件 T）。经过分析，各工艺单元的失效逻辑描述如下：</p>
+        
+        <h3>🔗 故障树逻辑关系描述（请据此判断各节点逻辑门类型）</h3>
+        <table class="logic-desc-table">
+            <thead>
+                <tr><th>节点</th><th>失效逻辑描述</th><th>包含的基本事件</th><th>请判断逻辑门</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>M1 初沉池失效</strong></td>
+                    <td>初沉池的主要功能是沉淀悬浮物。只有当“刮泥机损坏”和“排泥泵堵塞”这两个事件<strong>同时发生</strong>时，才会导致污泥无法排出，进而使初沉池完全丧失沉淀效果。</td>
+                    <td>X1 刮泥机损坏<br>X2 排泥泵堵塞</td>
+                    <td style="text-align:center">❓ 与门 / 或门</td>
+                 </tr>
+                <tr>
+                    <td><strong>M2 生物转盘失效</strong></td>
+                    <td>生物转盘依靠微生物膜降解有机物。以下任一情况发生，都会破坏生物处理系统：电机故障导致转盘停止转动；<strong>或者</strong>生物膜大面积脱落；<strong>或者</strong>进水受到毒性冲击导致微生物死亡。只要上述<strong>任意一个</strong>事件发生，生物转盘就会失效。</td>
+                    <td>X3 电机故障<br>X4 生物膜脱落<br>X5 进水毒性冲击</td>
+                    <td style="text-align:center">❓ 与门 / 或门</td>
+                 </tr>
+                <tr>
+                    <td><strong>M3 二沉池及管理失效</strong></td>
+                    <td>二沉池用于泥水分离。如果发生“污泥上浮”<strong>或者</strong>发生“巡检不到位”导致未能及时处理异常，两种情况只要出现<strong>一种</strong>，就会造成出水SS超标。</td>
+                    <td>X6 污泥上浮<br>X7 巡检不到位</td>
+                    <td style="text-align:center">❓ 与门 / 或门</td>
+                 </tr>
+                <tr>
+                    <td><strong>T 出水水质超标</strong></td>
+                    <td>整个工艺中，只要“初沉池失效”、“生物转盘失效”、“二沉池及管理失效”这三个中间事件中<strong>有任何一个发生</strong>，就会直接导致最终的出水水质超标。</td>
+                    <td>M1, M2, M3</td>
+                    <td style="text-align:center">❓ 与门 / 或门</td>
+                 </tr>
+            </tbody>
+        </table>
+
+        <div class="info">
+            <strong>📌 给定基本事件概率（用于定量计算）：</strong><br>
+            q1=0.02 (X1刮泥机损坏) &nbsp; q2=0.03 (X2排泥泵堵塞) &nbsp; q3=0.015 (X3电机故障)<br>
+            q4=0.02 (X4生物膜脱落) &nbsp; q5=0.01 (X5进水毒性冲击) &nbsp; q6=0.025 (X6污泥上浮)<br>
+            q7=0.04 (X7巡检不到位)
+        </div>
+        
+        <div class="warning">
+            <strong>✏️ 学生任务：</strong><br>
+            1. 根据上述逻辑描述，在下方「任务二」中判断每个节点是“与门”还是“或门”。<br>
+            2. 根据你判断的逻辑门，选择合适的公式计算P(M1)、P(M2)、P(M3)、P(T)，填入「任务四」<br>
+            3. 在故障树画布中绘制完整的故障树结构（包含顶事件、中间事件、基本事件和逻辑门）<br>
+            4. 完成最小割集和重要度分析
+        </div>
+    </div>
+
+    <!-- 学生作答区 -->
+    <div class="card">
+        <h2>✏️ 学生作答区</h2>
+        
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+            <div style="flex:1;"><label>👤 姓名：</label><input type="text" id="studentName" placeholder="请输入真实姓名"></div>
+            <div style="flex:1;"><label>📚 学号：</label><input type="text" id="studentId" placeholder="请输入学号"></div>
+        </div>
+        
+        <hr>
+        
+        <h3>🌲 任务一：绘制故障树</h3>
+        <div class="canvas-section">
+            <div class="toolbar">
+                <button class="tool-btn" data-shape="top">🔴 顶事件(T)</button>
+                <button class="tool-btn" data-shape="middle">🟠 中间事件(M)</button>
+                <button class="tool-btn" data-shape="basic">🟢 基本事件(X)</button>
+                <button class="tool-btn" data-shape="or">⊞ 或门(OR)</button>
+                <button class="tool-btn" data-shape="and">⊟ 与门(AND)</button>
+                <button class="tool-btn line-btn" id="lineModeBtn">🔗 连线模式</button>
+                <button class="tool-btn delete-btn" id="deleteModeBtn">🗑️ 删除模式</button>
+                <button class="tool-btn" id="clearCanvasBtn">🧹 清空画布</button>
+            </div>
+            <div class="canvas-container">
+                <canvas id="faultTreeCanvas" width="700" height="550" style="border:1px solid #ccc;"></canvas>
+                <div class="status-bar" id="statusBar">💡 双击文字可编辑 | 拖拽移动图形</div>
+            </div>
+        </div>
+        <button class="btn-upload" id="uploadTreeBtn">📸 保存故障树图片（必须！）</button>
+        <div id="uploadStatus" class="upload-status" style="display:none;"></div>
+        
+        <hr>
+        
+        <h3>📌 任务二：判断逻辑门类型（根据上方描述自主判断）</h3>
+        <div class="prob-grid">
+            <div class="form-row"><label>M1 (初沉池失效) 逻辑门：</label>
+                <select id="gateM1"><option value="">--请根据逻辑描述判断--</option><option value="OR">或门 (OR)</option><option value="AND">与门 (AND)</option></select>
+            </div>
+            <div class="form-row"><label>M2 (生物转盘失效) 逻辑门：</label>
+                <select id="gateM2"><option value="">--请根据逻辑描述判断--</option><option value="OR">或门 (OR)</option><option value="AND">与门 (AND)</option></select>
+            </div>
+            <div class="form-row"><label>M3 (二沉池/管理失效) 逻辑门：</label>
+                <select id="gateM3"><option value="">--请根据逻辑描述判断--</option><option value="OR">或门 (OR)</option><option value="AND">与门 (AND)</option></select>
+            </div>
+            <div class="form-row"><label>顶事件 T (出水超标) 逻辑门：</label>
+                <select id="gateT"><option value="">--请根据逻辑描述判断--</option><option value="OR">或门 (OR)</option><option value="AND">与门 (AND)</option></select>
+            </div>
+        </div>
+        
+        <h3>📌 任务三：最小割集</h3>
+        <div class="form-row"><textarea id="minCutSet" rows="2" placeholder="根据你判断的逻辑门和故障树，写出最小割集。例如：{X1,X2}, {X3}, {X4}, {X5}, {X6}, {X7}"></textarea></div>
+        
+        <h3>📊 任务四：定量计算（请根据你判断的逻辑门，选择正确公式计算）</h3>
+        <div class="info" style="margin-bottom:16px;">
+            <strong>基本事件概率：</strong> P(X1)=0.02, P(X2)=0.03, P(X3)=0.015, P(X4)=0.02, P(X5)=0.01, P(X6)=0.025, P(X7)=0.04
+        </div>
+        <div class="prob-grid">
+            <div class="form-row"><label>P(M1) = （初沉池失效概率）</label><input type="text" id="probM1" placeholder="计算结果"></div>
+            <div class="form-row"><label>P(M2) = （生物转盘失效概率）</label><input type="text" id="probM2" placeholder="计算结果"></div>
+            <div class="form-row"><label>P(M3) = （二沉池失效概率）</label><input type="text" id="probM3" placeholder="计算结果"></div>
+            <div class="form-row"><label>P(T) = （顶事件概率）</label><input type="text" id="probTop" placeholder="最终结果"></div>
+        </div>
+        
+        <h3>📊 任务五：重要度分析</h3>
+        <div class="form-row"><label>结构重要度排序：</label>
+            <textarea id="structImportance" rows="2" placeholder="根据基本事件在故障树中的位置和逻辑门，进行排序"></textarea>
+        </div>
+        
+        <div class="importance-grid" id="probImportanceGrid"></div>
+        <div class="importance-grid" id="criticalImportanceGrid"></div>
+        
+        <hr>
+        
+        <h3>📱 提交作业</h3>
+        <div class="btn-group">
+            <button class="btn-submit" id="generateQRBtn">🔘 生成提交二维码</button>
+        </div>
+        <div id="qrcode-area" class="qrcode-area" style="display:none;">
+            <canvas id="qrcodeCanvas" width="200" height="200"></canvas>
+            <div class="json-preview" id="jsonPreview"></div>
+            <p class="note">✅ 请用微信扫码，在小程序中提交</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 生成重要度输入框
+    const xNames = ['X1 刮泥机损坏', 'X2 排泥泵堵塞', 'X3 电机故障', 'X4 生物膜脱落', 'X5 进水毒性冲击', 'X6 污泥上浮', 'X7 巡检不到位'];
+    const xKeys = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'];
+    const probGridDiv = document.getElementById('probImportanceGrid');
+    const criticalGridDiv = document.getElementById('criticalImportanceGrid');
+    xNames.forEach((name, idx) => {
+        const probDiv = document.createElement('div'); probDiv.className = 'importance-item';
+        probDiv.innerHTML = `<label>概率重要度 Ig(${name})</label><input type="text" id="ig_${xKeys[idx]}" placeholder="例如 0.85">`;
+        probGridDiv.appendChild(probDiv);
+        const critDiv = document.createElement('div'); critDiv.className = 'importance-item';
+        critDiv.innerHTML = `<label>临界重要度 Ic(${name})</label><input type="text" id="ic_${xKeys[idx]}" placeholder="例如 0.12">`;
+        criticalGridDiv.appendChild(critDiv);
+    });
+
+    // ========== 故障树绘图逻辑 ==========
+    const canvas = document.getElementById('faultTreeCanvas');
+    const ctx = canvas.getContext('2d');
+    let shapes = [], lines = [], selectedShape = null, isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
+    let currentShapeType = 'top', deleteMode = false, lineMode = false, lineStartShape = null;
+    let uploadedImageUrl = '';
+
+    function drawTop(x, y, text) { const w=130,h=40; ctx.fillStyle='#fee2e2'; ctx.fillRect(x-w/2,y-h/2,w,h); ctx.strokeRect(x-w/2,y-h/2,w,h); ctx.fillStyle='#991b1b'; ctx.font='bold 12px'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text||'出水水质超标 T',x,y); return {type:'top',x,y,w,h,text:text||'出水水质超标 T'}; }
+    function drawMiddle(x,y,text) { const w=130,h=40; ctx.fillStyle='#fff3e3'; ctx.fillRect(x-w/2,y-h/2,w,h); ctx.strokeStyle='#f97316'; ctx.strokeRect(x-w/2,y-h/2,w,h); ctx.fillStyle='#c2410c'; ctx.font='12px'; ctx.fillText(text||'M? 事件名',x,y); return {type:'middle',x,y,w,h,text:text||'M? 事件名'}; }
+    function drawBasic(x,y,text) { const rx=45,ry=18; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,2*Math.PI); ctx.fillStyle='#d1fae5'; ctx.fill(); ctx.strokeStyle='#10b981'; ctx.stroke(); ctx.fillStyle='#047857'; ctx.font='11px'; ctx.fillText(text||'X? 事件名',x,y); return {type:'basic',x,y,rx,ry,text:text||'X? 事件名'}; }
+    function drawGate(x,y,gateType) { const w=50,h=35; ctx.fillStyle='#e0e7ff'; ctx.fillRect(x-w/2,y-h/2,w,h); ctx.strokeRect(x-w/2,y-h/2,w,h); ctx.fillStyle='#3730a3'; ctx.font='bold 12px'; ctx.fillText(gateType,x,y); return {type:'gate',gateType,x,y,w,h}; }
+    function drawLine(from,to) { ctx.beginPath(); ctx.moveTo(from.x,from.y); ctx.lineTo(to.x,to.y); ctx.strokeStyle='#5b6e8c'; ctx.lineWidth=2; ctx.stroke(); const angle=Math.atan2(to.y-from.y,to.x-from.x); const ax=to.x-12*Math.cos(angle), ay=to.y-12*Math.sin(angle); ctx.fillStyle='#5b6e8c'; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax-8*Math.cos(angle-Math.PI/6), ay-8*Math.sin(angle-Math.PI/6)); ctx.lineTo(ax-8*Math.cos(angle+Math.PI/6), ay-8*Math.sin(angle+Math.PI/6)); ctx.fill(); }
+    function redraw() { ctx.clearRect(0,0,canvas.width,canvas.height); lines.forEach(l=>{const f=shapes[l.fromIdx], t=shapes[l.toIdx]; if(f&&t) drawLine(f,t);}); shapes.forEach(s=>{if(s.type==='top') drawTop(s.x,s.y,s.text); else if(s.type==='middle') drawMiddle(s.x,s.y,s.text); else if(s.type==='basic') drawBasic(s.x,s.y,s.text); else if(s.type==='gate') drawGate(s.x,s.y,s.gateType);}); if(selectedShape){ ctx.save(); ctx.strokeStyle='#f59e0b'; ctx.lineWidth=3; if(selectedShape.type==='basic'){ ctx.beginPath(); ctx.ellipse(selectedShape.x,selectedShape.y,selectedShape.rx+3,selectedShape.ry+3,0,0,2*Math.PI); ctx.stroke();} else { const w=selectedShape.w||130, h=selectedShape.h||40; ctx.strokeRect(selectedShape.x-w/2-2,selectedShape.y-h/2-2,w+4,h+4);} ctx.restore();} }
+    function hitTest(mx,my){ for(let i=shapes.length-1;i>=0;i--){const s=shapes[i]; if(s.type==='basic'){if(Math.hypot(mx-s.x,my-s.y)<s.rx) return s;} else {const w=s.w||130,h=s.h||40; if(mx>=s.x-w/2&&mx<=s.x+w/2&&my>=s.y-h/2&&my<=s.y+h/2) return s;}} return null; }
+    function addShape(mx,my){ let ns; if(currentShapeType==='top') ns=drawTop(mx,my,'出水水质超标 T'); else if(currentShapeType==='middle') ns=drawMiddle(mx,my,'M? 事件名'); else if(currentShapeType==='basic') ns=drawBasic(mx,my,'X? 事件名'); else if(currentShapeType==='or') ns=drawGate(mx,my,'OR'); else if(currentShapeType==='and') ns=drawGate(mx,my,'AND'); else return; shapes.push(ns); redraw(); }
+    function addLine(f,t){ const fi=shapes.indexOf(f), ti=shapes.indexOf(t); if(fi===-1||ti===-1||fi===ti) return; if(!lines.some(l=>l.fromIdx===fi&&l.toIdx===ti)){ lines.push({fromIdx:fi,toIdx:ti}); redraw();} }
+    function deleteShape(s){ const idx=shapes.indexOf(s); if(idx===-1) return; shapes=shapes.filter(ss=>ss!==s); lines=lines.filter(l=>l.fromIdx!==idx&&l.toIdx!==idx); lines=lines.map(l=>({fromIdx:l.fromIdx>idx?l.fromIdx-1:l.fromIdx,toIdx:l.toIdx>idx?l.toIdx-1:l.toIdx})); selectedShape=null; redraw(); }
+    canvas.addEventListener('mousedown',(e)=>{ const rect=canvas.getBoundingClientRect(); const mx=(e.clientX-rect.left)*(canvas.width/rect.width), my=(e.clientY-rect.top)*(canvas.height/rect.height); if(deleteMode){ const hit=hitTest(mx,my); if(hit) deleteShape(hit); return; } if(lineMode){ const hit=hitTest(mx,my); if(hit){ if(!lineStartShape){ lineStartShape=hit; document.getElementById('statusBar').innerText='已选起点，点击终点连线';} else { addLine(lineStartShape,hit); lineStartShape=null; document.getElementById('statusBar').innerText='连线完成';}} return; } const hit=hitTest(mx,my); if(hit){ selectedShape=hit; isDragging=true; dragOffsetX=hit.x-mx; dragOffsetY=hit.y-my; redraw();} else addShape(mx,my); });
+    canvas.addEventListener('mousemove',(e)=>{ if(!isDragging||!selectedShape) return; const rect=canvas.getBoundingClientRect(); const mx=(e.clientX-rect.left)*(canvas.width/rect.width), my=(e.clientY-rect.top)*(canvas.height/rect.height); selectedShape.x=mx+dragOffsetX; selectedShape.y=my+dragOffsetY; redraw(); });
+    canvas.addEventListener('mouseup',()=>{ isDragging=false; selectedShape=null; });
+    canvas.addEventListener('dblclick',(e)=>{ const rect=canvas.getBoundingClientRect(); const mx=(e.clientX-rect.left)*(canvas.width/rect.width), my=(e.clientY-rect.top)*(canvas.height/rect.height); const hit=hitTest(mx,my); if(hit&&hit.type!=='gate'){ const newText=prompt('输入新文字:',hit.text); if(newText){ hit.text=newText; redraw();}} });
+    document.querySelectorAll('.tool-btn[data-shape]').forEach(btn=>{ btn.addEventListener('click',()=>{ currentShapeType=btn.getAttribute('data-shape'); deleteMode=false; lineMode=false; lineStartShape=null; document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); document.getElementById('deleteModeBtn').classList.remove('active'); document.getElementById('lineModeBtn').classList.remove('active'); document.getElementById('statusBar').innerText='✅ 放置模式：点击画布放置图形'; }); });
+    document.getElementById('deleteModeBtn').addEventListener('click',()=>{ deleteMode=!deleteMode; if(deleteMode){ currentShapeType=null; lineMode=false; document.getElementById('statusBar').innerText='🗑️ 删除模式：点击图形删除';} else document.getElementById('statusBar').innerText='✅ 放置模式'; document.getElementById('deleteModeBtn').classList.toggle('active'); document.getElementById('lineModeBtn').classList.remove('active'); });
+    document.getElementById('lineModeBtn').addEventListener('click',()=>{ lineMode=!lineMode; if(lineMode){ currentShapeType=null; deleteMode=false; lineStartShape=null; document.getElementById('statusBar').innerText='🔗 连线模式：点击起点，再点击终点';} else document.getElementById('statusBar').innerText='✅ 放置模式'; document.getElementById('lineModeBtn').classList.toggle('active'); document.getElementById('deleteModeBtn').classList.remove('active'); });
+    document.getElementById('clearCanvasBtn').addEventListener('click',()=>{ shapes=[]; lines=[]; selectedShape=null; lineStartShape=null; redraw(); });
+    redraw(); document.querySelector('.tool-btn[data-shape="top"]').classList.add('active');
+
+    // 上传图片到云函数
+    document.getElementById('uploadTreeBtn').addEventListener('click', async function() {
+        const studentName = document.getElementById('studentName').value;
+        const studentId = document.getElementById('studentId').value;
+        if (!studentName || !studentId) { alert('请先填写姓名和学号'); return; }
+        const btn = this, statusDiv = document.getElementById('uploadStatus'), originalText = btn.innerText;
+        btn.innerText = '⏳ 上传中...'; btn.disabled = true; statusDiv.style.display = 'block'; statusDiv.className = 'upload-status'; statusDiv.innerText = '正在上传图片...';
+        try {
+            const imageBase64 = canvas.toDataURL('image/png');
+            // 请确保您的云函数HTTP触发器地址正确
+            const response = await fetch('https://cloud1-6gjzf6atbfb2b73b-1419890826.ap-shanghai.app.tcloudbase.com/uploadImage', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64, studentName, studentId })
+            });
+            const result = await response.json();
+            if (result.success) { uploadedImageUrl = result.fileID; statusDiv.className = 'upload-status success'; statusDiv.innerText = '✅ 故障树图片保存成功！'; alert('故障树图片已保存！'); } 
+            else { throw new Error(result.message); }
+        } catch (error) { statusDiv.className = 'upload-status error'; statusDiv.innerText = '❌ 上传失败：' + error.message; alert('上传失败，请检查网络或云函数配置'); }
+        finally { btn.innerText = originalText; btn.disabled = false; }
+    });
+
+    // 生成二维码
+    document.getElementById('generateQRBtn').addEventListener('click', () => {
+        const studentName = document.getElementById('studentName').value;
+        const studentId = document.getElementById('studentId').value;
+        if(!studentName || !studentId) { alert('请填写姓名和学号'); return; }
+        if (!uploadedImageUrl) { alert('请先点击「保存故障树图片」上传故障树'); return; }
+        const probImp = {}, critImp = {};
+        xKeys.forEach(k => { probImp[k] = document.getElementById(`ig_${k}`)?.value || ''; critImp[k] = document.getElementById(`ic_${k}`)?.value || ''; });
+        const answerData = {
+            studentName, studentId, timestamp: new Date().toLocaleString(),
+            gateM1: document.getElementById('gateM1').value, gateM2: document.getElementById('gateM2').value, gateM3: document.getElementById('gateM3').value, gateT: document.getElementById('gateT').value,
+            minCutSet: document.getElementById('minCutSet').value, probM1: document.getElementById('probM1').value, probM2: document.getElementById('probM2').value,
+            probM3: document.getElementById('probM3').value, probTop: document.getElementById('probTop').value,
+            structImportance: document.getElementById('structImportance').value, probImportance: probImp, criticalImportance: critImp,
+            faultTreeImageUrl: uploadedImageUrl
+        };
+        const jsonStr = JSON.stringify(answerData);
+        document.getElementById('qrcode-area').style.display = 'block';
+        new QRious({ element: document.getElementById('qrcodeCanvas'), value: jsonStr, size: 200, level: 'H' });
+        document.getElementById('jsonPreview').innerHTML = '<strong>📋 提交数据（可复制）：</strong><br>' + jsonStr.substring(0, 300) + (jsonStr.length > 300 ? '...' : '');
+        alert('✅ 二维码已生成！请用微信扫码提交。');
+    });
+</script>
+</body>
+</html>
